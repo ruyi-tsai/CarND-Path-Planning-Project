@@ -7,6 +7,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
 #include "json.hpp"
+#include "spline.h"
 
 // for convenience
 using nlohmann::json;
@@ -57,6 +58,7 @@ int main() {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
+ 
     if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
       auto s = hasData(data);
@@ -87,17 +89,81 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
-
+          
           json msgJson;
-
+             
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-
+   
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-
+          double dist_inc = 0.3;
+          double pre_size = previous_path_x.size();
+          bool isclose = false;
+          for(int i;i<sensor_fusion.size();i++)
+          {
+          	float d = sensor_fusion[i][6];
+            if(d<(6+2) && d>(6-2))
+            {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_car_speed = sqrt(vx*vx+vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+              check_car_s +=double(pre_size*.02*check_car_speed);
+              if(check_car_s>car_s && (check_car_s-car_s)>30)
+              {
+                 isclose = true;
+                dist_inc = 0.2;
+              }
+              
+            	
+            }
+            
+          }
+          /*
+          for(int i=0;i<50;i++)
+          {
+          	double next_s = car_s+(i+1)*dist_inc;
+            double next_d = 6;
+            vector<double> xy = getXY(next_s,next_d,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+            next_x_vals.push_back(xy[0]);
+            next_y_vals.push_back(xy[1]);
+          }
+          */
+          tk::spline s;
+          vector<double> ptx;
+          vector<double> pty;
+          vector<double> xy_path0 = getXY(car_s,6,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+          vector<double> xy_path1 = getXY(car_s+50*dist_inc,6,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+          vector<double> xy_path2 = getXY(car_s+50*2*dist_inc,6,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+      
+          ptx.push_back(xy_path0[0]);
+          pty.push_back(xy_path0[1]);
+          ptx.push_back(xy_path1[0]);
+          pty.push_back(xy_path1[1]);
+          ptx.push_back(xy_path2[0]);
+          pty.push_back(xy_path2[1]);
+          s.set_points(ptx,pty);
+          
+          
+          for(int i=0;i<50;i++)
+          {
+          	double next_s = car_s+(i+1)*dist_inc;
+            double next_d = 6;
+            vector<double> xy = getXY(next_s,next_d,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+            next_x_vals.push_back(xy[0]);
+            next_y_vals.push_back(s(xy[0]));
+          }
+          
+          
+          
+         
+          
+          //end
+          
+          
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
