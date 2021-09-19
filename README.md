@@ -23,14 +23,42 @@ In this project your goal is to safely navigate around a virtual highway with ot
 Here is the data provided from the Simulator to the C++ Program
 
 ## Rubic Points
-1. using spline smooth car path.
-   I used spline (Cubic Spline interpolation implementation) method in this project . 
-   reference line 135 .
+### Trajectory Generator
+1. Major Waypoints
 
-2. collision avoid
-   In the code, you can find this part between the lines 115 and 119.
+First, given the lane I’m targeting to end up in, I generate 3 major path waypoints 50 meters away from each other. I also create 2 points very close to my position which reflect the current orientation of my car. More on why I did this bellow…
 
-   It deals with the telemetry and sensor fusion data and intents to reason about the environment. First, it iterates over the sensor data for each detected car and determines    its lane (id). Then it calculates whether this particular car is ahead/left/right of our car with a distance less than 30 meters or not.
+```
+  vector<double> xy_path0 = getXY(car_s,6,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+  vector<double> xy_path1 = getXY(car_s+50*dist_inc,6,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+  vector<double> xy_path2 = getXY(car_s+50*2*dist_inc,6,map_waypoints_s,map_waypoints_x,map_waypoints_y);
+```
+2. Spline Generation
 
+To know how I’m going to reach one point after another, I create a spline which runs through these major waypoints. A spline is a polynomial regression that goes exactly through each and every points that are given to it. Since I create these 2 points where my car is at, the generated spline will be tangent to my current trajectory and won’t create too much jerk or acceleration.
+```
+tk::spline s;
+ptx.push_back(xy_path0[0]);
+pty.push_back(xy_path0[1]);
+ptx.push_back(xy_path1[0]);
+pty.push_back(xy_path1[1]);
+ptx.push_back(xy_path2[0]);
+pty.push_back(xy_path2[1]);
+s.set_points(ptx,pty);
+```
+
+
+3. Avoid collision
+For avoid collision , I need use sensor_fusion to prediction other car position.If other cars may close (<30 mile). I need reduce speed.
+```
+ check_car_s +=double(pre_size*.02*check_car_speed);
+              if(check_car_s>car_s && (check_car_s-car_s)>30)
+              {
+                 isclose = true;
+                dist_inc = 0.2;
+              }
+```
+
+     
 
 
